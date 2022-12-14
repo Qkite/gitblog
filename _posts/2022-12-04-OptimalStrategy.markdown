@@ -8,7 +8,7 @@ fig-caption: 체스 # Add figcaption (optional)
 tags: [algorithm, optimal_strategy, dynamic_programming]
 ---
 
-# 1. 알고리즘: 최적 전략
+# 알고리즘: 최적 전략
 
 <aside>
 ✏️ 배열 [2,7,40,19]의 양 끝에서 A와 B는 하나씩 숫자를 꺼낼 수 있다. 꺼낸 숫자의 합을 비교해서 합이 더 큰 사람이 게임에서 이긴다고 하고 A와 B는 모두 이길 수 있는 최적의 방법을 선택한다고 하자. 만약 A가 먼저 숫자를 꺼내기 시작했고, A가 이겼다고 했을 때 A와 B의 점수(숫자의 합)은 각각 몇 점일까?
@@ -75,5 +75,74 @@ b) A가 19를 먼저 뽑았다고 하면 B는 `배열 [2,7,40]`이 있는 경우
 
 
 ## B. 코드
+
+```java
+import java.util.Arrays;
+
+class Pair<L, R>{
+    L left;
+    R right;
+
+    Pair(L left, R right){
+        this.left = left;
+        this.right = right;
+    }
+
+}
+
+public class OptimalStrategy {
+
+    Pair[][] optimalSelect(int[] input){
+        Pair[][] arr = new Pair[input.length][input.length];
+
+        for (int i = 0; i < input.length; i++) {
+            arr[i][i] = new Pair(input[i], 0);
+        }
+
+
+        for (int i = 0; i < input.length-1; i++) {
+            arr[i][i+1] = new Pair(Math.max(input[i], input[i+1]), Math.min(input[i], input[i+1]));
+        }
+
+        for (int i = 2; i < input.length; i++) {
+            for (int j = 0; j < input.length-i; j++) {
+                int num1 = input[j] + (int) arr[j+1][j+i].right;
+                int num2 = input[j+i] + (int) arr[j][j+i-1].right;
+
+                if(num1 >= num2){
+                    arr[j][j+i] = new Pair(num1, (int) arr[j+1][j+i].left);
+                } else{
+                    arr[j][j+i] = new Pair(num2, (int) arr[j][j+i-1].left);
+                }
+
+
+
+            }
+        }
+
+
+
+        return arr;
+
+    }
+
+
+    public static void main(String[] args) {
+
+        OptimalStrategy optimalStrategy = new OptimalStrategy();
+
+        Pair[][] result1 = optimalStrategy3.optimalSelect(new int[]{2, 7, 40, 19});
+
+        for (int i = 0; i < result1.length; i++) {
+            for (int j = i; j < result1.length ; j++) {
+                System.out.printf("%d %d left: %d, right: %d\n", i, j, result1[i][j].left, result1[i][j].right);
+            }
+
+        }
+
+    }
+}
+
+```
 
 

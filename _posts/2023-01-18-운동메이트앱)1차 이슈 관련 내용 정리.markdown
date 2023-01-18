@@ -1,0 +1,274 @@
+---
+layout: post
+title: 운동 메이트 앱) 1차 이슈 내용 정리
+date: 2023-01-18
+description: You’ll find this post in your `_posts` directory. Go ahead and edit it and re-build the site to see your changes. # Add post description (optional)
+img: coding-g016f8552d_1920.jpg # Add image post (optional)
+fig-caption: 코딩 # Add figcaption (optional)
+tags: [start, gitblog]
+---
+
+## 1차 이슈
+
+- 회원가입 기능 구현
+
+> POST /api/v1/users/join
+
+json의 형태로 정보를 받고 반환하기
+
+### request
+
+* userId: 회원 가입 시 아이디
+* userName: 닉네임
+* password: 비밀번호
+* address: 주소
+* likeSoccer, likeTennis, likeJogging, ... :ui에서 선호하는 종목을 선택하는 형태로 구현 -> Boolean으로 설정함, 리스트 형태로 받는다면 수정 가능
+
+```json
+{
+  "userId":"userId11231",
+  "userName":"hihi2222",
+  "password":"123456",
+  "address":"서울시 강남구",
+  "likeSoccer":true,
+  "likeTennis":false
+  
+}
+
+```
+
+### response
+
+* userId: 회원 가입 시 아이디
+* message: 회원에게 보낼 메시지
+
+```json
+{
+  "userId":"userId11231",
+  "message": "회원가입 되었습니다."
+  
+}
+
+```
+
+### service
+
+1. 구현 내용
+   1. BEncrypterEncoder로 비밀번호 암호화 진행
+   2. 결과를 모두 Response이 형태로 반환: AppException도 던지면 ExceptionManager에서 Response의 형태로 감싸서 반환
+   3. 아이디 중복, 닉네임 중복 모두 Exception으로 던졌지만 닉네임은 추후에 중복 확인 버튼 생성으로 수정할 계획
+   4. 관심 종목을 설정할 수 있도록 함 -> of(Entity로 변환하는 메소드) 사용해서 리팩토링 진행해야 함
+   5. enum type으로 설정되어 있어 중복 선택이 어려움 -> 종목을 Entity의 형태로 변환하는 것이 필요
+   6. 프로필 기능과 함께 회원 정보 수정도 필요할 것 같음
+
+
+
+BCryptPasswordEncoder -> 비밀번호 암호화
+```java
+@Configuration
+public class EncrypterConfig {
+
+    public BCryptPasswordEncoder encoder(){
+        return new BCryptPasswordEncoder();
+    }
+}
+```
+
+
+### Test Code
+
+- 전역 변수를 선언하여 fixture 설정 -> 추후에 fixture라는 클래스로 다시 리팩토링할 예정
+
+1. Controller Test
+
+```java
+@WebMvcTest(UserController.class)
+@Slf4j
+class UserControllerTest {
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @Autowired
+    ObjectMapper objectMapper;
+
+    @MockBean
+    UserService userService;
+    
+    
+    @Test
+    @WithMockUser
+    @DisplayName("회원가입 성공")
+    public void 회원가입테스트1() throws Exception {
+
+        UserJoinResponse response = UserJoinResponse.builder()
+                .userId("아이디")
+                .message("회원가입 되었습니다.").build();
+
+
+        when(userService.addUser(any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/users/join")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value("아이디"))
+                .andExpect(jsonPath("$.message").value("회원가입 되었습니다."))
+                .andDo(print());
+
+
+    }
+
+
+    @Test
+    @WithMockUser
+    @DisplayName("회원가입 실패1 - 아이디 중복")
+    public void 회원가입테스트2() throws Exception {
+
+        userService.addUser(request1);
+
+        when(userService.addUser(any())).thenThrow(new AppException(ErrorCode.DUPLICATED_USERID, ErrorCode.DUPLICATED_USERID.getMessage()));
+
+        // runtime exception을 throw 할 때 bad request가 발생하도록 설정 -> 4XX exception이 발생하는지 확인
+
+        mockMvc.perform(post("/api/v1/users/join")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request2)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(content().string(ErrorCode.DUPLICATED_USERID.name() + " 이미 존재하는 아이디 입니다."))
+                .andDo(print());
+
+
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("회원가입 실패2 - 닉네임 중복")
+    public void 회원가입테스트3() throws Exception {
+
+        userService.addUser(request1);
+
+        when(userService.addUser(any())).thenThrow(new AppException(ErrorCode.DUPLICATED_USERNAME, ErrorCode.DUPLICATED_USERNAME.getMessage()));
+
+        mockMvc.perform(post("/api/v1/users/join")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request3)))
+                .andExpect(status().is4xxClientError())
+                .andExpect(content().string(ErrorCode.DUPLICATED_USERNAME.name() + " 이미 존재하는 닉네임 입니다."))
+                .andDo(print());
+
+    }
+
+}
+```
+
+2. Service Test
+
+```java
+@ExtendWith(MockitoExtension.class)
+class UserServiceTest {
+
+    @Mock
+    UserRepository userRepository;
+
+    @Mock
+    EncrypterConfig config;
+    
+
+    // service에서 비밀번호 암호화 -> testcode에서 encoder 설정
+    @BeforeEach
+    public void 세팅(){
+
+        when(config.encoder()).thenReturn(new BCryptPasswordEncoder());
+        
+    }
+
+
+    @Test
+    @DisplayName("회원가입 성공")
+    public void 회원가입테스트1(){
+
+        UserService service = new UserService(userRepository, config);
+
+        User user1 = User.builder()
+                .id(1L)
+                .userId("아이디")
+                .userName("닉네임")
+                .password("비밀번호")
+                .address("서울시 강남구")
+                .sport(InterestSport.SOCCER)
+                .build();
+
+
+        UserJoinResponse response = UserJoinResponse.builder()
+                .userId("아이디")
+                .message("회원가입 되었습니다.").build();
+
+
+        when(userRepository.save(any())).thenReturn(user1);
+
+        UserJoinResponse result = service.addUser(request1);
+
+        assertAll(
+                () -> assertEquals(response.getUserId(), result.getUserId()),
+                () -> assertEquals(response.getMessage(), result.getMessage()));
+
+    }
+
+    @Test
+    @DisplayName("회원가입 실패1 - 아이디 중복")
+    public void 회원가입테스트2(){
+        UserService service = new UserService(userRepository, config);
+
+        User user1 = User.builder()
+                .id(1L)
+                .userId("아이디")
+                .userName("닉네임")
+                .password("비밀번호")
+                .address("서울시 강남구")
+                .sport(InterestSport.SOCCER)
+                .build();
+
+        userRepository.save(user1);
+
+        when(userRepository.save(any())).thenThrow(new AppException(ErrorCode.DUPLICATED_USERID, ErrorCode.DUPLICATED_USERID.getMessage()));
+
+        RuntimeException exception = Assertions.assertThrows(RuntimeException.class,
+                () -> service.addUser(request2));
+
+        assertEquals(exception.getMessage(), "이미 존재하는 아이디 입니다.");
+
+    }
+
+    @Test
+    @DisplayName("회원가입 실패2 - 닉네임 중복")
+    public void 회원가입테스트3() {
+
+        UserService service = new UserService(userRepository, config);
+
+        User user1 = User.builder()
+                .id(1L)
+                .userId("아이디")
+                .userName("닉네임")
+                .password("비밀번호")
+                .address("서울시 강남구")
+                .sport(InterestSport.SOCCER)
+                .build();
+
+        userRepository.save(user1);
+
+        when(userRepository.save(any())).thenThrow(new AppException(ErrorCode.DUPLICATED_USERNAME, ErrorCode.DUPLICATED_USERNAME.getMessage()));
+
+        RuntimeException exception = Assertions.assertThrows(RuntimeException.class,
+                () -> service.addUser(request2));
+
+        assertEquals(exception.getMessage(), "이미 존재하는 닉네임 입니다.");
+    }
+
+}
+```
+

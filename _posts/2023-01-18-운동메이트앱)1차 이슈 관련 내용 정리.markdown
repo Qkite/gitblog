@@ -57,7 +57,8 @@ json의 형태로 정보를 받고 반환하기
 
 ### service
 
-1. 구현 내용
+1. 구현 내용 
+   
    a. BEncrypterEncoder로 비밀번호 암호화 진행 
 
    b. 결과를 모두 Response이 형태로 반환: AppException도 던지면 ExceptionManager에서 Response의 형태로 감싸서 반환 

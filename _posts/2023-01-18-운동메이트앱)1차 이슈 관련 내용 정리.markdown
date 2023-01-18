@@ -2,13 +2,15 @@
 layout: post
 title: 운동 메이트 앱) 1차 이슈 내용 정리
 date: 2023-01-18
-description: You’ll find this post in your `_posts` directory. Go ahead and edit it and re-build the site to see your changes. # Add post description (optional)
+description: 멋쟁이 사자처럼 운동 메이트 앱(오늘부터 운동메) 프로젝트에서 1차로 구현한 기능 정리 # Add post description (optional)
 img: coding-g016f8552d_1920.jpg # Add image post (optional)
 fig-caption: 코딩 # Add figcaption (optional)
-tags: [start, gitblog]
+tags: [sports, project, coding]
 ---
 
-## 1차 이슈
+## 1차 이슈 진행
+
+2023.01.16~2023.01.17
 
 - 회원가입 기능 구현
 
